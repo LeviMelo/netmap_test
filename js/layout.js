@@ -1,7 +1,7 @@
 /**
  * layout.js
- *  - Provides layout configuration objects based on the chosen layout and slider values
- *  - Applies the selected layout and stores node positions
+ *  - Provides layout configuration objects based on the chosen layout and slider values.
+ *  - Applies the selected layout and stores node positions.
  */
 
 let activeLayout = null;
@@ -17,8 +17,7 @@ function getLayoutOptions(layoutName) {
   const grav = parseFloat(document.getElementById("gravitySlider").value) || 0.1;
   const infinite = document.getElementById("infiniteToggle").checked;
   const avoidOverlap = document.getElementById("avoidOverlapToggle").checked;
-  const edgeSymDiff = parseFloat(document.getElementById("edgeSymDiffSlider").value) || 0.5;
-  const edgeJaccard = parseFloat(document.getElementById("edgeJaccardSlider").value) || 0.5;
+  // Removed the edgeSymDiff and edgeJaccard parameters as they did not affect the layout
 
   // Parameters for Concentric and Breadthfirst layouts
   const layerSpacing = parseFloat(document.getElementById("layerSpacingSlider").value) || 60;
@@ -34,8 +33,6 @@ function getLayoutOptions(layoutName) {
         edgeLength: () => edgeLen,
         gravity: grav,
         avoidOverlap: avoidOverlap,
-        edgeSymDiffCostFactor: edgeSymDiff,
-        edgeJaccardLengthCostFactor: edgeJaccard,
         nodeDimensionsIncludeLabels: true,
       };
 

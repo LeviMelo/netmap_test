@@ -6,6 +6,67 @@
 document.addEventListener("DOMContentLoaded", function () {
     console.log("[DEBUG] DOM Loaded.");
   
+    // Group sidebar elements into containers for layout customization and graph aesthetics.
+    function groupSidebarElements() {
+      const sidebar = document.querySelector('.sidebar');
+      if (!sidebar) return;
+  
+      // Create container for layout customization
+      const layoutContainer = document.createElement('div');
+      layoutContainer.id = 'layoutCustomizationContainer';
+      layoutContainer.style.border = "1px solid #ccc";
+      layoutContainer.style.padding = "10px";
+      layoutContainer.style.marginBottom = "10px";
+  
+      // Create container for graph aesthetics
+      const aestheticsContainer = document.createElement('div');
+      aestheticsContainer.id = 'graphAestheticsContainer';
+      aestheticsContainer.style.border = "1px solid #ccc";
+      aestheticsContainer.style.padding = "10px";
+      aestheticsContainer.style.marginBottom = "10px";
+  
+      // Identify layout customization elements: layout dropdown container and layout-specific parameter divs
+      const layoutDropdownContainer = document.querySelector('select#layoutDropdown')?.parentElement;
+      const colaParams = document.getElementById('colaParams');
+      const layerParams = document.getElementById('layerParams');
+  
+      if (layoutDropdownContainer) {
+        layoutContainer.appendChild(layoutDropdownContainer);
+      }
+      if (colaParams) {
+        layoutContainer.appendChild(colaParams);
+      }
+      if (layerParams) {
+        layoutContainer.appendChild(layerParams);
+      }
+  
+      // Insert layoutContainer into sidebar, after the JSON textarea
+      const jsonTextarea = document.getElementById('jsonInput');
+      if (jsonTextarea && jsonTextarea.parentElement) {
+        jsonTextarea.parentElement.insertBefore(layoutContainer, jsonTextarea.nextSibling);
+      }
+  
+      // Identify graph aesthetics elements: slider containers for nodeFontSlider, nodeOutlineWidthSlider, nodePaddingSlider, edgeWidthSlider, edgeFontSlider, edgeOutlineWidthSlider
+      const aestheticsIds = ['nodeFontSlider', 'nodeOutlineWidthSlider', 'nodePaddingSlider', 'edgeWidthSlider', 'edgeFontSlider', 'edgeOutlineWidthSlider'];
+      const aestheticsElements = [];
+      aestheticsIds.forEach(id => {
+        const elem = document.getElementById(id);
+        if (elem && elem.parentElement) {
+          aestheticsElements.push(elem.parentElement);
+        }
+      });
+  
+      // Append aesthetics elements to aestheticsContainer
+      aestheticsElements.forEach(elem => aestheticsContainer.appendChild(elem));
+  
+      // Insert aestheticsContainer into sidebar, after layoutContainer
+      if (layoutContainer.parentElement) {
+        layoutContainer.parentElement.insertBefore(aestheticsContainer, layoutContainer.nextSibling);
+      }
+    }
+    
+    groupSidebarElements();
+  
     const loadGraphBtn = document.getElementById("loadGraphBtn");
     const resetZoomBtn = document.getElementById("resetZoomBtn");
     const exportPngBtn = document.getElementById("exportPngBtn");
@@ -21,6 +82,7 @@ document.addEventListener("DOMContentLoaded", function () {
         updateLayoutParamUI(layoutDropdown.value);
         applyLayout();
         setupConstructorEvents();
+        attachDoubleClickHandlers();
       }
     });
   
@@ -30,14 +92,13 @@ document.addEventListener("DOMContentLoaded", function () {
       applyLayout();
     });
   
-    // Setup layout parameter slider events for Cola parameters.
+    // Setup layout parameter slider events for Cola and other parameters.
     const nodeRepulsionSlider = document.getElementById("nodeRepulsionSlider");
     const edgeLengthSlider = document.getElementById("edgeLengthSlider");
     const gravitySlider = document.getElementById("gravitySlider");
     const infiniteToggle = document.getElementById("infiniteToggle");
     const avoidOverlapToggle = document.getElementById("avoidOverlapToggle");
-    const edgeSymDiffSlider = document.getElementById("edgeSymDiffSlider");
-    const edgeJaccardSlider = document.getElementById("edgeJaccardSlider");
+    // Removed edgeSymDiffSlider and edgeJaccardSlider as these parameters have been dropped.
     const layerSpacingSlider = document.getElementById("layerSpacingSlider");
   
     function refresh(id, val) {
@@ -62,14 +123,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
     avoidOverlapToggle.addEventListener("change", function () {
       refresh("avoidOverlapValue", avoidOverlapToggle.checked ? "ON" : "OFF");
-      if (layoutDropdown.value === "cola" && cy) applyLayout();
-    });
-    edgeSymDiffSlider.addEventListener("input", function () {
-      refresh("edgeSymDiffValue", edgeSymDiffSlider.value);
-      if (layoutDropdown.value === "cola" && cy) applyLayout();
-    });
-    edgeJaccardSlider.addEventListener("input", function () {
-      refresh("edgeJaccardValue", edgeJaccardSlider.value);
       if (layoutDropdown.value === "cola" && cy) applyLayout();
     });
     layerSpacingSlider.addEventListener("input", function () {
@@ -139,6 +192,57 @@ document.addEventListener("DOMContentLoaded", function () {
       toggleConstructorMode();
     });
   
+    // Attach double-click handlers for editing labels and creating nodes.
+    function attachDoubleClickHandlers() {
+      if (!cy) return;
+      let lastTapTimeBg = 0;
+      let lastTapTimeEle = 0;
+      const dblClickDelay = 300;
+  
+      // Double tap on background to create a node.
+      cy.on('tap', function(event) {
+        if (event.target === cy) {
+          let currentTime = new Date().getTime();
+          if (currentTime - lastTapTimeBg < dblClickDelay) {
+            // Double tap detected on blank space
+            if (constructorMode) {
+              let pos = event.position;
+              let newId = generateUniqueNodeId();
+              let label = prompt("Enter label for the new node:", "");
+              let newNode = cy.add({
+                group: "nodes",
+                data: { id: newId, label: label || newId, color: "#888" },
+                position: pos
+              });
+              newNode.ungrabify();
+              updateJsonFromGraph();
+            }
+            lastTapTimeBg = 0;
+          } else {
+            lastTapTimeBg = currentTime;
+          }
+        }
+      });
+  
+      // Double tap on a node or edge to edit its label.
+      cy.on('tap', 'node, edge', function(event) {
+        let currentTime = new Date().getTime();
+        if (currentTime - lastTapTimeEle < dblClickDelay) {
+          if (constructorMode) {
+            let ele = event.target;
+            let newLabel = prompt("Enter new label:", ele.data("label"));
+            if (newLabel !== null) {
+              ele.data("label", newLabel);
+              updateJsonFromGraph();
+            }
+          }
+          lastTapTimeEle = 0;
+        } else {
+          lastTapTimeEle = currentTime;
+        }
+      });
+    }
+  
     // Auto-load default JSON at startup
     (function autoLoad() {
       const defaultJson = document.getElementById("jsonInput").value;
@@ -148,6 +252,7 @@ document.addEventListener("DOMContentLoaded", function () {
         updateLayoutParamUI(layoutDropdown.value);
         applyLayout();
         setupConstructorEvents();
+        attachDoubleClickHandlers();
       }
     })();
   });
