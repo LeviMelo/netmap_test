@@ -1,0 +1,20 @@
+{
+  "name": "netmap",
+  "version": "1.0.0",
+  "main": "script.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "cytoscape": "^3.31.0",
+    "cytoscape-cola": "^2.5.1",
+    "webcola": "^3.3.0"
+  },
+  "resolutions": {
+    "webcola": "3.3.0"
+  }
+}

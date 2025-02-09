@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Interactive Concept Map</title>
+  <link rel="stylesheet" href="style.css" />
+  <!-- Include libraries from your local node_modules or a local libs folder -->
+  <script src="node_modules/webcola/WebCola/cola.min.js"></script>
+  <script src="node_modules/cytoscape/dist/cytoscape.min.js"></script>
+  <script src="node_modules/cytoscape-cola/cytoscape-cola.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="sidebar">
+      <h2>Concept Map Controls</h2>
+
+      <!-- Graph JSON textarea -->
+      <label for="jsonInput">Graph JSON:</label>
+      <textarea id="jsonInput" rows="10" cols="30">
+{
+  "nodes": {
+    "A": { "label": "Node A", "color": "#e41a1c" },
+    "B": { "label": "Node B", "color": "#377eb8" },
+    "C": { "label": "Node C", "color": "#4daf4a" }
+  },
+  "edges": [
+    { "from": "A", "to": "B", "label": "A → B" },
+    { "from": "B", "to": "C", "label": "B → C" },
+    { "from": "C", "to": "A", "label": "C → A" }
+  ]
+}
+      </textarea>
+      <br />
+
+      <!-- Layout selection (static layouts only) -->
+      <div class="slider-container">
+        <label for="layoutDropdown">Layout (static):</label>
+        <select id="layoutDropdown">
+          <option value="grid">Grid</option>
+          <option value="circle">Circle</option>
+          <option value="concentric">Concentric</option>
+          <option value="breadthfirst">Breadthfirst</option>
+          <option value="preset" selected>Preset (Freeze)</option>
+        </select>
+      </div>
+      <br />
+
+      <!-- Physics (Cola) toggle button -->
+      <button id="physicsToggle" style="background-color: red; color: white;">
+        Physics (Cola) OFF
+      </button>
+      <br /><br />
+
+      <!-- Physics parameter sliders (hidden by default if physics is OFF) -->
+      <div id="physicsParams" style="display: none;">
+        <div class="slider-container">
+          <label for="nodeRepulsionSlider">Node Repulsion:</label>
+          <input type="range" id="nodeRepulsionSlider" min="0" max="100" step="1" value="10">
+          <span id="nodeRepulsionValue">10</span>
+        </div>
+        <div class="slider-container">
+          <label for="edgeLengthSlider">Edge Length:</label>
+          <input type="range" id="edgeLengthSlider" min="10" max="200" step="1" value="50">
+          <span id="edgeLengthValue">50</span>
+        </div>
+        <div class="slider-container">
+          <label for="gravitySlider">Gravity:</label>
+          <input type="range" id="gravitySlider" min="0" max="1" step="0.01" value="0.1">
+          <span id="gravityValue">0.1</span>
+        </div>
+      </div>
+
+      <br />
+      <!-- Aesthetic parameters -->
+      <div class="slider-container">
+        <label for="nodeFontSlider">Node Font Size:</label>
+        <input type="range" id="nodeFontSlider" min="8" max="36" step="1" value="12">
+        <span id="nodeFontValue">12</span>
+      </div>
+      <div class="slider-container">
+        <label for="nodeOutlineWidthSlider">Node Outline Width:</label>
+        <input type="range" id="nodeOutlineWidthSlider" min="0" max="10" step="1" value="2">
+        <span id="nodeOutlineWidthValue">2</span>
+      </div>
+      <div class="slider-container">
+        <label for="nodePaddingSlider">Node Padding:</label>
+        <input type="range" id="nodePaddingSlider" min="0" max="50" step="1" value="10">
+        <span id="nodePaddingValue">10</span>
+      </div>
+
+      <div class="slider-container">
+        <label for="edgeWidthSlider">Edge Width:</label>
+        <input type="range" id="edgeWidthSlider" min="0.5" max="10" step="0.5" value="3">
+        <span id="edgeWidthValue">3</span>
+      </div>
+      <div class="slider-container">
+        <label for="edgeFontSlider">Edge Label Font Size:</label>
+        <input type="range" id="edgeFontSlider" min="6" max="36" step="1" value="10">
+        <span id="edgeFontValue">10</span>
+      </div>
+      <div class="slider-container">
+        <label for="edgeOutlineWidthSlider">Edge Outline Width:</label>
+        <input type="range" id="edgeOutlineWidthSlider" min="0" max="10" step="1" value="1">
+        <span id="edgeOutlineWidthValue">1</span>
+      </div>
+
+      <br />
+      <button id="loadGraphBtn">Load Graph</button>
+      <br /><br />
+      <button id="resetZoomBtn">Reset Zoom</button>
+      <br /><br />
+      <button id="exportPngBtn">Export PNG</button>
+      <br /><br />
+
+      <!-- UI instructions for interactive connection of nodes -->
+      <p>To create a connection, click on a node, then drag and release on another node.</p>
+    </div>
+
+    <div class="graph-container">
+      <div id="cy"></div>
+    </div>
+  </div>
+
+  <!-- Main script -->
+  <script src="script.js"></script>
+</body>
+</html>
