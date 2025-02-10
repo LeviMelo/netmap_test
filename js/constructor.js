@@ -5,21 +5,32 @@
  * 
  * Behavior in Constructor Mode:
  * - All nodes are frozen (un‑draggable) by default.
- * - If a user clicks on a node WITHOUT holding Shift, the system immediately
- *   enters edge creation mode from that node:
+ * - In Edge Mode (default), dragging from a node initiates edge creation:
  *     • The initial click position is recorded.
- *     • If the mouse moves more than 10px before release, edge creation is cancelled.
+ *     • (We no longer cancel based on movement; a release over a node creates an edge.)
  *     • On mouseup:
  *         – If released over a different node, an edge is created from the source node to that node.
  *         – If released on the background, a new node is created at that position and an edge is drawn from the source.
- * - If a user clicks on a node WHILE holding Shift, the node is temporarily enabled for dragging.
- *   When the mouse is released the node is frozen again.
+ * - Holding the Control key enables Drag Mode (nodes become draggable).
+ * - Holding the Shift key enables Delete Mode (clicking a node or edge deletes it).
+ * - Double-clicking in empty space creates a new node.
+ * - Double-clicking on a node or edge (when Delete Mode is not active) allows editing of its label.
  */
 
 let constructorMode = false;
-let sourceNode = null;    // The node from which edge creation is initiated.
-let startPos = null;      // Position where the mouse was pressed down.
+// Mode variables are controlled by key holds:
+let dragMode = false;    // Active while Control is held.
+let deleteMode = false;  // Active while Shift is held.
+// Edge mode is active when neither drag nor delete mode is active.
+let edgeMode = true;     // Computed as: !dragMode && !deleteMode
 
+let sourceNode = null;   // The node from which edge creation is initiated.
+let startPos = null;     // Position where the mouse was pressed down.
+
+/**
+ * Toggles Constructor Mode.
+ * When ON, nodes are frozen (unless Control is held).
+ */
 function toggleConstructorMode() {
   constructorMode = !constructorMode;
   const btn = document.getElementById("constructorModeBtn");
@@ -28,91 +39,111 @@ function toggleConstructorMode() {
 
   if (!cy) return;
 
-  // In Constructor Mode, freeze all nodes (disable dragging).
   if (constructorMode) {
-    cy.nodes().forEach((node) => {
-      node.ungrabify();
-    });
+    // Freeze all nodes by default.
+    cy.nodes().forEach((node) => node.ungrabify());
   } else {
-    // When not in Constructor Mode, enable dragging normally.
-    cy.nodes().forEach((node) => {
-      node.grabify();
-    });
+    // Enable normal dragging.
+    cy.nodes().forEach((node) => node.grabify());
   }
-
+  
   // Clear any pending edge creation.
   sourceNode = null;
 }
 
+/**
+ * Sets up the mouse event handlers for Constructor Mode.
+ * Their behavior depends on the mode variables which are controlled by key holds.
+ */
 function setupConstructorEvents() {
   if (!cy) return;
 
   // MOUSEDOWN on a node:
-  // - If Shift is pressed, enable dragging for that node.
-  // - Otherwise, record the node and position to initiate edge creation.
-  cy.on("mousedown", "node", function (evt) {
+  // - If Delete Mode is active, immediately delete the element.
+  // - If Drag Mode is active, let Cytoscape’s built‑in dragging work.
+  // - Otherwise (Edge Mode), record the source node and starting position.
+  cy.on("mousedown", "node", function(evt) {
     if (!constructorMode) return;
-    const eventObj = evt.originalEvent;
-    if (eventObj.shiftKey) {
-      // Enable dragging: temporarily allow movement.
-      evt.target.grabify();
-      // Do not initiate edge creation.
-      sourceNode = null;
+    if (deleteMode) {
+      evt.target.remove();
+      updateJsonFromGraph();
       return;
     }
-    // Start edge creation process.
+    if (dragMode) {
+      // In drag mode, do nothing special here.
+      return;
+    }
+    // In edge mode, start edge creation.
     sourceNode = evt.target;
     startPos = evt.position;
   });
 
   // MOUSEMOVE on a node:
-  // If not dragging (i.e. no Shift held), cancel edge creation if the user moves too far.
-  cy.on("mousemove", "node", function (evt) {
+  // (We no longer cancel edge creation based on movement, allowing natural dragging.)
+  cy.on("mousemove", "node", function(evt) {
     if (!constructorMode || !sourceNode) return;
-    if (evt.originalEvent.shiftKey) return; // Ignore if in dragging mode.
-    const currentPos = evt.position;
-    const distance = Math.hypot(currentPos.x - startPos.x, currentPos.y - startPos.y);
-    if (distance > 10) {
-      // User moved too far; cancel edge creation.
-      sourceNode = null;
-    }
+    if (!edgeMode) return;
+    // No cancellation based on distance.
   });
 
   // MOUSEUP anywhere:
-  // Finalize the gesture by either creating an edge (or node+edge) if not canceled,
-  // or, if Shift was held, re‑freeze the node after dragging.
-  cy.on("mouseup", function (evt) {
+  // Finalize edge creation if applicable.
+  cy.on("mouseup", function(evt) {
     if (!constructorMode) return;
-    const eventObj = evt.originalEvent;
-    if (eventObj.shiftKey) {
-      // This was a drag operation. If the target is a node, re‑freeze it.
-      if (evt.target && evt.target.isNode()) {
-        evt.target.ungrabify();
-      }
-      // Do not perform any edge or node creation.
+    if (dragMode || !edgeMode) {
       sourceNode = null;
       return;
     }
-    if (!sourceNode) return; // Edge creation was cancelled due to movement.
+    if (!sourceNode) return;
     const dropTarget = evt.target;
     const dropPos = evt.position;
 
-    // If dropped on a different node, create an edge.
+    // If dropped on a different node (and not the source), create an edge.
     if (dropTarget !== cy && dropTarget.isNode() && dropTarget.id() !== sourceNode.id()) {
       createEdge(sourceNode, dropTarget);
     }
-    // If dropped on blank space, create a new node and an edge.
+    // If dropped on the background, create a new node and an edge.
     else if (dropTarget === cy) {
       createNodeAndEdge(sourceNode, dropPos);
     }
-    // Otherwise (e.g. dropped on the same node), do nothing.
-    sourceNode = null; // Reset for the next gesture.
+    sourceNode = null;
+  });
+
+  // DOUBLE-CLICK HANDLERS
+
+  // Double-click on the background creates a new node.
+  cy.on("tap", function(evt) {
+    if (!constructorMode) return;
+    if (evt.target === cy && evt.originalEvent.detail === 2) {
+      createNewNode(evt.position);
+    }
+  });
+
+  // Double-click on a node or edge always edits its label (deletion is handled via single tap when Shift is held).
+  cy.on("tap", "node, edge", function(evt) {
+    if (!constructorMode) return;
+    if (evt.originalEvent.detail !== 2) return;
+    if (deleteMode) return;
+    const newLabel = prompt("Edit label:", evt.target.data("label"));
+    if (newLabel !== null) {
+      evt.target.data("label", newLabel);
+      updateJsonFromGraph();
+    }
+  });
+
+  // In Delete Mode, a single tap on a node or edge deletes it.
+  cy.on("tap", "node, edge", function(evt) {
+    if (!constructorMode) return;
+    if (deleteMode && evt.originalEvent.detail === 1) {
+      evt.target.remove();
+      updateJsonFromGraph();
+    }
   });
 }
 
 /**
  * createEdge(src, tgt)
- * Creates an edge from src → tgt and prompts for its label.
+ * Creates an edge from src to tgt and prompts for its label.
  */
 function createEdge(src, tgt) {
   const newEdge = cy.add({
@@ -123,7 +154,7 @@ function createEdge(src, tgt) {
       edgeColor: src.data("color") || "#ccc",
     },
   });
-  updateJsonFromGraph();  // (Assumes function from graph.js)
+  updateJsonFromGraph();
 
   const label = prompt("Enter label for the new edge:", "");
   if (label) {
@@ -134,7 +165,7 @@ function createEdge(src, tgt) {
 
 /**
  * createNodeAndEdge(src, pos)
- * Creates a new node at position pos, then creates an edge from src to the new node.
+ * Creates a new node at pos, then creates an edge from src to the new node.
  */
 function createNodeAndEdge(src, pos) {
   const newId = generateUniqueNodeId();
@@ -150,8 +181,7 @@ function createNodeAndEdge(src, pos) {
     position: { x: pos.x, y: pos.y },
   });
 
-  // Ensure the new node is frozen (un‑draggable) in Constructor Mode.
-  if (constructorMode) {
+  if (constructorMode && !dragMode) {
     newNode.ungrabify();
   }
 
@@ -171,6 +201,34 @@ function createNodeAndEdge(src, pos) {
   const edgeLabel = prompt("Enter label for the new edge:", "");
   if (edgeLabel) {
     newEdge.data("label", edgeLabel);
+  }
+  updateJsonFromGraph();
+}
+
+/**
+ * createNewNode(pos)
+ * Creates a new standalone node at pos and prompts for its label.
+ */
+function createNewNode(pos) {
+  const newId = generateUniqueNodeId();
+  const defaultColor = "#888";
+  const newNode = cy.add({
+    group: "nodes",
+    data: {
+      id: newId,
+      label: "",
+      color: defaultColor,
+    },
+    position: { x: pos.x, y: pos.y },
+  });
+
+  if (constructorMode && !dragMode) {
+    newNode.ungrabify();
+  }
+
+  const nodeLabel = prompt("Enter label for the new node:", "");
+  if (nodeLabel) {
+    newNode.data("label", nodeLabel);
   }
   updateJsonFromGraph();
 }

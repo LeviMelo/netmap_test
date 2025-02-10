@@ -17,7 +17,6 @@ function getLayoutOptions(layoutName) {
   const grav = parseFloat(document.getElementById("gravitySlider").value) || 0.1;
   const infinite = document.getElementById("infiniteToggle").checked;
   const avoidOverlap = document.getElementById("avoidOverlapToggle").checked;
-  // Removed the edgeSymDiff and edgeJaccard parameters as they did not affect the layout
 
   // Parameters for Concentric and Breadthfirst layouts
   const layerSpacing = parseFloat(document.getElementById("layerSpacingSlider").value) || 60;
@@ -56,6 +55,7 @@ function getLayoutOptions(layoutName) {
       return options;
 
     case "preset":
+      // For the preset layout, we retrieve stored positions if available.
       return {
         ...options,
         name: "preset",
@@ -69,20 +69,32 @@ function getLayoutOptions(layoutName) {
 
 function applyLayout() {
   if (!cy) return;
+
+  // **Step 1: Store the current node positions before applying a new layout.**
+  storePositionsInData();
+
+  // If an active layout is already running, stop it.
   if (activeLayout) {
     activeLayout.stop();
     activeLayout = null;
   }
+
+  // Get the selected layout name from the UI.
   const layoutName = document.getElementById("layoutDropdown").value;
   const opts = getLayoutOptions(layoutName);
+
+  // **Step 2: Apply the new layout.**
   activeLayout = cy.layout(opts);
   activeLayout.run();
+
+  // **Step 3: When the layout stops, update stored positions again.**
   activeLayout.on("layoutstop", () => {
     storePositionsInData();
   });
 }
 
 function storePositionsInData() {
+  // Capture the current positions of all nodes and store them in their data as '_savedPos'.
   cy.nodes().forEach((n) => {
     n.data("_savedPos", {
       x: n.position("x"),

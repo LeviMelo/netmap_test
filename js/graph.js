@@ -16,8 +16,8 @@ function buildElementsFromJSON(jsonText) {
   }
   const elements = [];
 
-  // Process nodes (object or array format)
-  if (data.nodes && typeof data.nodes === "object") {
+  // Process nodes (object format or array format)
+  if (data.nodes && typeof data.nodes === "object" && !Array.isArray(data.nodes)) {
     for (let id in data.nodes) {
       let n = data.nodes[id];
       elements.push({
@@ -69,13 +69,13 @@ function initializeCytoscape(elements) {
   cy = cytoscape({
     container: document.getElementById("cy"),
     elements: elements,
-    style: getCytoscapeStyle(), // from ui.js
+    style: getCytoscapeStyle(), // Assume getCytoscapeStyle() is defined in ui.js
     minZoom: 0.1,
     maxZoom: 10,
     zoom: 1,
     pan: { x: 0, y: 0 },
   });
-  // Enable dragging by default
+  // By default, enable dragging (this can be overridden by layout logic)
   cy.nodes().forEach((n) => n.grabify());
 }
 
