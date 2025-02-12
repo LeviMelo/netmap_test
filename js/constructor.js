@@ -165,7 +165,7 @@ function createEdge(src, tgt) {
 
 /**
  * createNodeAndEdge(src, pos)
- * Creates a new node at pos, then creates an edge from src to the new node.
+ * Creates a new node at position pos, then creates an edge from src to the new node.
  */
 function createNodeAndEdge(src, pos) {
   const newId = generateUniqueNodeId();
@@ -185,11 +185,7 @@ function createNodeAndEdge(src, pos) {
     newNode.ungrabify();
   }
 
-  const nodeLabel = prompt("Enter label for the new node:", "");
-  if (nodeLabel) {
-    newNode.data("label", nodeLabel);
-  }
-
+  // First, create the edge connecting src to the new node.
   const newEdge = cy.add({
     data: {
       source: src.id(),
@@ -198,12 +194,21 @@ function createNodeAndEdge(src, pos) {
       edgeColor: newColor,
     },
   });
+
+  // Prompt first for the edge label.
   const edgeLabel = prompt("Enter label for the new edge:", "");
   if (edgeLabel) {
     newEdge.data("label", edgeLabel);
   }
+
+  // Then prompt for the new node's label.
+  const nodeLabel = prompt("Enter label for the new node:", "");
+  if (nodeLabel) {
+    newNode.data("label", nodeLabel);
+  }
   updateJsonFromGraph();
 }
+
 
 /**
  * createNewNode(pos)
